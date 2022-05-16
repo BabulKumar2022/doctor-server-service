@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const app = express();
 require('dotenv').config();
@@ -14,13 +15,29 @@ const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster
 console.log(uri);
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
-
+//JWT verify function
+function verifyJWT(req, res, next){
+  // console.log('abcd')
+  const authHeader = req.headers.authorization;
+  if(! authHeader){
+    return res.status(401).send({message: 'UnAuthorized access'});
+  }
+  const token = authHeader.split(' ')[1];
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function(err, decoded){
+    if(err){
+      return res.status(403).send({message: 'Forbidden access'})
+    }
+    req.decoded = decoded;
+    next();
+  })
+}
 
 async function run(){
     try{
         await client.connect();
         const treatmentCollection = client.db('doctor_service').collection('treatment');
         const bookingCollection = client.db('doctor_service').collection(' booking');
+        const userCollection = client.db('doctor_service').collection('users');
        
         console.log('db connected');
 
@@ -34,6 +51,19 @@ async function run(){
             res.send(services);
         })
 
+        // UPSERT(update or insert)
+        app.put('/user/:email', async(req, res) =>{
+          const email = req.params.email;
+          const user = req.body;
+          const filter = {email: email};
+          const options ={upsert: true};
+          const updateDoc = {
+            $set: user,
+          };
+          const result = await userCollection.updateOne(filter, updateDoc, options);
+          const token = jwt.sign({email: email}, process.env.ACCESS_TOKEN_SECRET,{expiresIn: '20h'})
+          res.send({result, token});
+        })
 
 
         app.get('/available', async(req, res) =>{
@@ -63,17 +93,28 @@ async function run(){
 * app.get('/booking') // get all booking in this collection. or  get  more than one or by filter
 * app.get('/booking/:id') // get a specific booking
 * app.post('/booking') // add a new booking
+*app.put('/booking/:id')// upsert ==> update(if exists)  or insert (if doesn't exists)
 * app.patch('/booking/:id') // update a specific booking
 * app.delete('/booking/id') // delete a specific booking
 */
 
 //get patient from booking collection 
-app.get('/booking', async(req, res) =>{
+app.get('/booking', verifyJWT, async(req, res) =>{
   const patient =req.query.patient;
-  const query = {patient: patient};
-  const bookings = await bookingCollection.find(query).toArray();
-  res.send(bookings);
-  console.log(bookings);
+  //token secured
+  const authorization = req.headers.authorization;
+  // console.log('auth header', authorization);
+  const decodedEmail = req.decoded.email;
+  if(patient === decodedEmail){
+    const query = {patient: patient};
+    const bookings = await bookingCollection.find(query).toArray();
+    res.send(bookings);
+    // console.log(bookings);
+  }else{
+    return res.status(403).send({message: 'forbidden access'})
+  }
+
+
 
 })
 

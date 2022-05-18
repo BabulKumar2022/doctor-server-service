@@ -143,6 +143,10 @@ app.get('/booking', verifyJWT, async(req, res) =>{
     const bookings = await bookingCollection.find(query).toArray();
     res.send(bookings);
     // console.log(bookings);
+  }else{
+    return res.status(403).send({message: 'forbidden access'})
+  }
+})
 
 // doctor collection
 app.post('/doctor', async(req, res) =>{
@@ -151,16 +155,6 @@ app.post('/doctor', async(req, res) =>{
   res.send(result);
 });
 
-
-
-
-  }else{
-    return res.status(403).send({message: 'forbidden access'})
-  }
-
-
-
-})
 
 // data get from UI(modal) and post to mongodb collection booking
 app.post('/booking', async(req, res) =>{

@@ -38,6 +38,7 @@ async function run(){
         const treatmentCollection = client.db('doctor_service').collection('treatment');
         const bookingCollection = client.db('doctor_service').collection(' booking');
         const userCollection = client.db('doctor_service').collection('users');
+        const doctorCollection = client.db('doctor_service').collection('doctors');
        
         console.log('db connected');
 
@@ -142,6 +143,17 @@ app.get('/booking', verifyJWT, async(req, res) =>{
     const bookings = await bookingCollection.find(query).toArray();
     res.send(bookings);
     // console.log(bookings);
+
+// doctor collection
+app.post('/doctor', async(req, res) =>{
+  const doctor =req.body;
+  const result = await doctorCollection.insertOne(doctor);
+  res.send(result);
+});
+
+
+
+
   }else{
     return res.status(403).send({message: 'forbidden access'})
   }
